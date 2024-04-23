@@ -1,8 +1,3 @@
-variable "deployment_name" {
-  type        = string
-  description = "The name of the deployment in which to create the resources."
-}
-
 variable "location" {
   type        = string
   default     = "East US"
@@ -13,4 +8,9 @@ variable "container_registry_name" {
   type        = string
   default     = "ddncr"
   description = "The name of the container registry."
+}
+
+variable "resource_group_name" {
+  type        = string
+  description = "The name of the resource group in which to create the resources."
 }

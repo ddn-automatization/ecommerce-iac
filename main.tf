@@ -3,42 +3,22 @@ provider "azurerm" {
 }
 
 resource "azurerm_resource_group" "rg" {
-  name     = var.resource_group_name
+  name     = "${var.deployment_name}-rg"
   location = var.location
 }
 
-resource "azurerm_container_registry" "acr" {
-  name                = var.container_registry_name
-  resource_group_name = azurerm_resource_group.rg.name
+module "acr" {
+  source              = "./modules/acr"
   location            = azurerm_resource_group.rg.location
-  sku                 = "Basic"
-  admin_enabled       = true
-}
-
-data "azurerm_container_registry" "acr" {
-  name                = azurerm_container_registry.acr.name
+  container_registry_name = var.container_registry_name
   resource_group_name = azurerm_resource_group.rg.name
 }
 
-resource "azurerm_kubernetes_cluster" "akc" {
-  name                = "${var.resource_group_name}-aks1"
+module "k8s_cluster" {
+  source              = "./modules/k8s_cluster"
+  deployment_name     = var.deployment_name
   location            = azurerm_resource_group.rg.location
   resource_group_name = azurerm_resource_group.rg.name
-  dns_prefix          = "aks1"
-
-  default_node_pool {
-    name       = "default"
-    node_count = 1
-    vm_size    = "Standard_D2_v2"
-  }
-
-  identity {
-    type = "SystemAssigned"
-  }
-
-  tags = {
-    Environment = "Development"
-  }
 }
 
 resource "azurerm_role_assignment" "ra" {
