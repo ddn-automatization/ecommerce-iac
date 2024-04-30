@@ -1,128 +1,17 @@
-# We strongly recommend using the required_providers block to set the
-# Azure Provider source and version being used
-/*
-terraform {
-  required_providers {
-    azurerm = {
-      source = "hashicorp/azurerm"
-    }
-  }
-}
+# Para desplegar este ejemplo necesitas primero crear todos los recursos con terraform apply
+# Luego debes extrare el id del api gateway ya desplegado con el siguiente comando
+# appgwId=$(az network application-gateway show -n myApplicationGateway -g testingApiK8sResourceGroup -o tsv --query "id")
+# Luego debes habilitar el controlador ingress y unirlo con dicha api con el comando
+# az aks enable-addons -n myCluster -g testingApiK8sResourceGroup -a ingress-appgw --appgw-id $appgwId
+# Luego, deberas mover el archivo kubeconfig a tu contexto local para poder usar los comandos
+# de kubectl en tu pc y comunicarse directamente con la nube
+# con mv kubeconfig ~/.kube/config se realiza dicha accion
+# luego puedes crear con kubectl el cluster-example.yaml o obtenerlo del repo oficial
+# kubectl apply -f https://raw.githubusercontent.com/Azure/application-gateway-kubernetes-ingress/master/docs/examples/aspnetapp.yaml 
+# luego kubectl get ingress para ver su ip o en puedes ir a azure, ver el recurso api gateway y la 
+# DIR IP FRONTEND que aparezca en el overview de tu apigateway deberia ser ahora el punto de acceso a
+# los recursos creados en el cluster
 
-provider "azurerm" {
-  features {}
-}
-
-resource "azurerm_resource_group" "apigw-k8s-resource" {
-  name     = "apigwk8sresources"
-  location = "centralus"
-  tags = {
-    environment = "dev"
-  }
-}
-
-
-
-resource "azurerm_api_management" "api-mg" {
-  name                = "apimn-1"
-  location            = azurerm_resource_group.apigw-k8s-resource.location
-  resource_group_name = azurerm_resource_group.apigw-k8s-resource.name
-  publisher_name      = "E-Commerce Admin Example"
-  publisher_email     = "ecommerce-admin@example"
-
-  sku_name = "Developer_1"
-}
-
-
-resource "azurerm_api_management_api" "api-mg-api" {
-  name                = "apimn-api-1"
-  resource_group_name = azurerm_resource_group.apigw-k8s-resource.name
-  api_management_name = azurerm_api_management.api-mg.name
-  revision            = "1"
-  display_name        = "E-CommerceAdminExampleAPI"
-  path                = "deploytest"
-  protocols           = ["https", "http"]
-  service_url         = "http://52.230.145.205"
-
-  import {
-    content_format = "swagger-link-json"
-    content_value  = "http://conferenceapi.azurewebsites.net/?format=json"
-  }
-}
-
-
-
-# Subredes
-
-resource "azurerm_virtual_network" "virtual_network" {
-  name =  "resources-vnet"
-  location = azurerm_resource_group.apigw-k8s-resource.location
-  resource_group_name = azurerm_resource_group.apigw-k8s-resource.name
-  address_space = "192.168.1.0/16"
-}
- 
-resource "azurerm_subnet" "aks_subnet" {
-  name = "aks"
-  resource_group_name  = azurerm_resource_group.apigw-k8s-resource.name
-  virtual_network_name = azurerm_virtual_network.virtual_network.name
-  address_prefixes = "192.168.0.0/24"
-}
-
-resource "azurerm_subnet" "app_gwsubnet" {
-  name = "appgw"
-  resource_group_name  = azurerm_resource_group.apigw-k8s-resource.name
-  virtual_network_name = azurerm_virtual_network.virtual_network.name
-  address_prefixes = "192.168.2.0/24"
-}
-
-
-
-
-
-
-resource "azurerm_kubernetes_cluster" "k8s" {
-  name                = "testk8s"
-  location            = azurerm_resource_group.apigw-k8s-resource.location
-  resource_group_name = azurerm_resource_group.apigw-k8s-resource.name
-  dns_prefix          = "k8sdns"
-
-  default_node_pool {
-    name       = "default"
-    node_count = 2
-    vm_size    = "Standard_D2_v2"
-  }
-
-  identity {
-    type = "SystemAssigned"
-  }
-
-  http_application_routing_enabled = true
-
-  tags = {
-    Environment = "Test"
-  }
-}
-
-resource "local_file" "kubeconfig" {
-  depends_on = [azurerm_kubernetes_cluster.k8s]
-  filename   = "kubeconfig"
-  content    = azurerm_kubernetes_cluster.k8s.kube_config_raw
-}
-
-
-resource "azurerm_dns_zone" "dns" {
-  name                = "www.ecommerceadmintesting.azurequickstart.org"
-  resource_group_name = azurerm_resource_group.apigw-k8s-resource.name
-}
-
-resource "azurerm_dns_a_record" "example" {
-  name                = "www"
-  zone_name           = azurerm_dns_zone.dns.name
-  resource_group_name = azurerm_resource_group.apigw-k8s-resource.name
-  ttl                 = 3600
-  records             = ["52.230.145.205"]  
-}
-*/
 
 #**********************Recursos Necesarios***************************
 provider "azurerm" {
@@ -280,6 +169,13 @@ resource "azurerm_kubernetes_cluster" "myCluster" {
   identity {
     type = "SystemAssigned"
   }
+
+  # Aqui se habilita el link entre el ingress y el appi para que el api pueda usar la ip del ingress como punto de acceso de los clientes
+  ingress_application_gateway {
+    gateway_id   = azurerm_application_gateway.myApplicationGateway.id # Reemplaza con el ID del Application Gateway
+    gateway_name = azurerm_application_gateway.myApplicationGateway.name
+  }
+
 }
 
 # Generacion del archivo kubeconfig para poder linkear kubectl de forma local con el cluster en la nube
@@ -417,4 +313,130 @@ resource "azurerm_virtual_network_peering" "to_appgwvnet" {
   allow_virtual_network_access = true
 }
 
+# We strongly recommend using the required_providers block to set the
+# Azure Provider source and version being used
+
+terraform {
+  required_providers {
+    azurerm = {
+      source = "hashicorp/azurerm"
+    }
+  }
+}
+
+provider "azurerm" {
+  features {}
+}
+
+resource "azurerm_resource_group" "apigw-k8s-resource" {
+  name     = "apigwk8sresources"
+  location = "centralus"
+  tags = {
+    environment = "dev"
+  }
+}
+
+
+
+resource "azurerm_api_management" "api-mg" {
+  name                = "apimn-1"
+  location            = azurerm_resource_group.apigw-k8s-resource.location
+  resource_group_name = azurerm_resource_group.apigw-k8s-resource.name
+  publisher_name      = "E-Commerce Admin Example"
+  publisher_email     = "ecommerce-admin@example"
+
+  sku_name = "Developer_1"
+}
+
+
+resource "azurerm_api_management_api" "api-mg-api" {
+  name                = "apimn-api-1"
+  resource_group_name = azurerm_resource_group.apigw-k8s-resource.name
+  api_management_name = azurerm_api_management.api-mg.name
+  revision            = "1"
+  display_name        = "E-CommerceAdminExampleAPI"
+  path                = "deploytest"
+  protocols           = ["https", "http"]
+  service_url         = "http://52.230.145.205"
+
+  import {
+    content_format = "swagger-link-json"
+    content_value  = "http://conferenceapi.azurewebsites.net/?format=json"
+  }
+}
+
+
+
+# Subredes
+
+resource "azurerm_virtual_network" "virtual_network" {
+  name =  "resources-vnet"
+  location = azurerm_resource_group.apigw-k8s-resource.location
+  resource_group_name = azurerm_resource_group.apigw-k8s-resource.name
+  address_space = "192.168.1.0/16"
+}
+ 
+resource "azurerm_subnet" "aks_subnet" {
+  name = "aks"
+  resource_group_name  = azurerm_resource_group.apigw-k8s-resource.name
+  virtual_network_name = azurerm_virtual_network.virtual_network.name
+  address_prefixes = "192.168.0.0/24"
+}
+
+resource "azurerm_subnet" "app_gwsubnet" {
+  name = "appgw"
+  resource_group_name  = azurerm_resource_group.apigw-k8s-resource.name
+  virtual_network_name = azurerm_virtual_network.virtual_network.name
+  address_prefixes = "192.168.2.0/24"
+}
+
+
+
+
+
+
+resource "azurerm_kubernetes_cluster" "k8s" {
+  name                = "testk8s"
+  location            = azurerm_resource_group.apigw-k8s-resource.location
+  resource_group_name = azurerm_resource_group.apigw-k8s-resource.name
+  dns_prefix          = "k8sdns"
+
+  default_node_pool {
+    name       = "default"
+    node_count = 2
+    vm_size    = "Standard_D2_v2"
+  }
+
+  identity {
+    type = "SystemAssigned"
+  }
+
+  http_application_routing_enabled = true
+
+  tags = {
+    Environment = "Test"
+  }
+}
+
+resource "local_file" "kubeconfig" {
+  depends_on = [azurerm_kubernetes_cluster.k8s]
+  filename   = "kubeconfig"
+  content    = azurerm_kubernetes_cluster.k8s.kube_config_raw
+}
+
+
+resource "azurerm_dns_zone" "dns" {
+  name                = "www.ecommerceadmintesting.azurequickstart.org"
+  resource_group_name = azurerm_resource_group.apigw-k8s-resource.name
+}
+
+resource "azurerm_dns_a_record" "example" {
+  name                = "www"
+  zone_name           = azurerm_dns_zone.dns.name
+  resource_group_name = azurerm_resource_group.apigw-k8s-resource.name
+  ttl                 = 3600
+  records             = ["52.230.145.205"]  
+}
 */
+
+
