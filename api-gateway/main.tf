@@ -11,11 +11,17 @@
 # luego kubectl get ingress para ver su ip o en puedes ir a azure, ver el recurso api gateway y la 
 # DIR IP FRONTEND que aparezca en el overview de tu apigateway deberia ser ahora el punto de acceso a
 # los recursos creados en el cluster
-
+# Para habilitar la union del cluster con el key vault se ejecuta el comando
+# az aks enable-addons --addons azure-keyvault-secrets-provider --name myCluster --resource-group testingApiK8sResourceGroup
 
 #**********************Recursos Necesarios***************************
 provider "azurerm" {
-  features {}
+  features {
+    key_vault {
+      purge_soft_delete_on_destroy    = true
+      recover_soft_deleted_key_vaults = true
+    }
+  }
 }
 # Grupo de recursos sobre lo que se creara todo el codigo
 resource "azurerm_resource_group" "apiK8sRss" {
@@ -23,6 +29,22 @@ resource "azurerm_resource_group" "apiK8sRss" {
   location = "East US"
 }
 
+data "azurerm_client_config" "current" {}
+
+#**************************Variables Locales***************************
+locals {
+  # Aqui se definen variables locales asociados a varios recursos de red para mantener
+  # la lebibilidad, consistencia y reutilizacion de dichas variables en el codigo
+  backend_address_pool_name      = "${azurerm_virtual_network.apiVnet.name}-beap"
+  frontend_port_HTTP_name        = "${azurerm_virtual_network.apiVnet.name}-fe_HTTP_port"
+  frontend_port_HTTPS_name       = "${azurerm_virtual_network.apiVnet.name}-fe_HTTPS_port"
+  frontend_ip_configuration_name = "${azurerm_virtual_network.apiVnet.name}-feip"
+  http_setting_name              = "${azurerm_virtual_network.apiVnet.name}-be-htst"
+  listener_name                  = "${azurerm_virtual_network.apiVnet.name}-httplstn"
+  request_routing_rule_name      = "${azurerm_virtual_network.apiVnet.name}-rqrt"
+  redirect_configuration_name    = "${azurerm_virtual_network.apiVnet.name}-rdrcfg"
+  current_user_id                = coalesce(null, data.azurerm_client_config.current.object_id)
+}
 #**********************Network Blocks*******************************
 
 # Ip Publica para asociarla al Api Gateway
@@ -62,20 +84,73 @@ resource "azurerm_subnet" "clusterSubnet" {
   address_prefixes     = ["10.2.1.0/24"]
 }
 
-#**************************Variables Locales***************************
+#**********************Key Vault*******************************
 
-locals {
-  # Aqui se definen variables locales asociados a varios recursos de red para mantener
-  # la lebibilidad, consistencia y reutilizacion de dichas variables en el codigo
-  backend_address_pool_name      = "${azurerm_virtual_network.apiVnet.name}-beap"
-  frontend_port_HTTP_name        = "${azurerm_virtual_network.apiVnet.name}-fe_HTTP_port"
-  frontend_port_HTTPS_name       = "${azurerm_virtual_network.apiVnet.name}-fe_HTTPS_port"
-  frontend_ip_configuration_name = "${azurerm_virtual_network.apiVnet.name}-feip"
-  http_setting_name              = "${azurerm_virtual_network.apiVnet.name}-be-htst"
-  listener_name                  = "${azurerm_virtual_network.apiVnet.name}-httplstn"
-  request_routing_rule_name      = "${azurerm_virtual_network.apiVnet.name}-rqrt"
-  redirect_configuration_name    = "${azurerm_virtual_network.apiVnet.name}-rdrcfg"
+# Definicion del recurso azurerm_key_vault
+resource "azurerm_key_vault" "myKeyVault-1099" {
+  name                       = "myKeyVault-1099"
+  location                   = azurerm_resource_group.apiK8sRss.location
+  resource_group_name        = azurerm_resource_group.apiK8sRss.name
+  tenant_id                  = data.azurerm_client_config.current.tenant_id
+  soft_delete_retention_days = 7
+  sku_name                   = "standard"
+
+  # Politica de acceso al Key Vault
+  access_policy {
+    tenant_id = data.azurerm_client_config.current.tenant_id
+    object_id = local.current_user_id
+
+    key_permissions = [
+      "Get", "Create", "List", "Delete", "Purge", "Recover", "SetRotationPolicy", "GetRotationPolicy"
+    ]
+
+    secret_permissions = [
+      "Get", "Set", "List", "Delete", "Purge", "Recover"
+    ]
+
+    certificate_permissions = [
+      "Get"
+    ]
+  }
 }
+
+# Definicion del recurso azurerm_key_vault_secret
+resource "azurerm_key_vault_secret" "myKeyVaultSecret" {
+  name         = "myKeyVaultSecret"
+  value        = "szechuan"
+  key_vault_id = azurerm_key_vault.myKeyVault-1099.id
+}
+
+# Definicion del recurso azurerm_key_vault_key
+resource "azurerm_key_vault_key" "generated" {
+  name         = "generated-certificate"
+  key_vault_id = azurerm_key_vault.myKeyVault-1099.id
+  key_type     = "RSA"
+  key_size     = 2048
+
+  key_opts = [
+    "decrypt",
+    "encrypt",
+    "sign",
+    "unwrapKey",
+    "verify",
+    "wrapKey",
+  ]
+
+  rotation_policy {
+    automatic {
+      time_before_expiry = "P30D"
+    }
+
+    expire_after         = "P90D"
+    notify_before_expiry = "P29D"
+  }
+}
+
+
+
+
+
 
 #*************************Creacion del Api Gateway*************************
 
@@ -170,11 +245,15 @@ resource "azurerm_kubernetes_cluster" "myCluster" {
     type = "SystemAssigned"
   }
 
-  # Aqui se habilita el link entre el ingress y el appi para que el api pueda usar la ip del ingress como punto de acceso de los clientes
+  /*
   ingress_application_gateway {
-    gateway_id   = azurerm_application_gateway.myApplicationGateway.id # Reemplaza con el ID del Application Gateway
-    gateway_name = azurerm_application_gateway.myApplicationGateway.name
+    gateway_id = azurerm_application_gateway.myApplicationGateway.id
   }
+
+  key_vault_secrets_provider {
+    secret_rotation_enabled = true
+  }
+  */
 
 }
 
@@ -190,11 +269,7 @@ resource "local_file" "kubeconfig" {
 #**********************************Union de redes virtuales********************************
 # Dado que ha desplegado el clúster AKS en su propia red virtual y la puerta de enlace de 
 # aplicaciones en otra red virtual, tendrá que unir las dos redes virtuales para que el tráfico 
-# fluya desde la puerta de enlace de aplicaciones a los pods del clúster. La interconexión de las 
-# dos redes virtuales requiere la ejecución del comando Azure CLI dos veces por separado, para
-# garantizar que la conexión sea bidireccional. El primer comando creará una conexión de interconexión
-# desde la red virtual de la puerta de enlace de aplicaciones a la red virtual AKS; el segundo comando 
-# creará una conexión de interconexión en la otra dirección.
+# fluya desde la puerta de enlace de aplicaciones a los pods del clúster.
 
 # Creacion de la relacion de confianza entre las redes virtuales del cluster y de la aplicacion
 resource "azurerm_virtual_network_peering" "AppGWtoClusterVnetPeering" {
@@ -213,9 +288,6 @@ resource "azurerm_virtual_network_peering" "ClustertoAppGWVnetPeering" {
   remote_virtual_network_id    = azurerm_virtual_network.apiVnet.id
   allow_virtual_network_access = true
 }
-
-
-
 
 
 
