@@ -14,6 +14,211 @@
 # Para habilitar la union del cluster con el key vault se ejecuta el comando
 # az aks enable-addons --addons azure-keyvault-secrets-provider --name myCluster --resource-group testingApiK8sResourceGroup
 
+
+# main.tf
+
+# Provider configuration
+provider "azurerm" {
+  features {
+    key_vault {
+      purge_soft_delete_on_destroy    = true
+      recover_soft_deleted_key_vaults = true
+    }
+  }
+}
+
+data "azurerm_client_config" "current" {}
+
+locals {
+  # Aqui se definen variables locales asociados a varios recursos de red para mantener
+  # la lebibilidad, consistencia y reutilizacion de dichas variables en el codigo
+  backend_address_pool_name      = "${module.networking.api_vnet_name}-beap"
+  frontend_port_HTTP_name        = "${module.networking.api_vnet_name}-fe_HTTP_port"
+  frontend_port_HTTPS_name       = "${module.networking.api_vnet_name}-fe_HTTPS_port"
+  frontend_ip_configuration_name = "${module.networking.api_vnet_name}-feip"
+  http_setting_name              = "${module.networking.api_vnet_name}-be-htst"
+  listener_name                  = "${module.networking.api_vnet_name}-httplstn"
+  request_routing_rule_name      = "${module.networking.api_vnet_name}-rqrt"
+  redirect_configuration_name    = "${module.networking.api_vnet_name}-rdrcfg"
+  current_user_id                = coalesce(null, data.azurerm_client_config.current.object_id)
+}
+
+# Module for creating the Azure Resource Group
+module "resource_group" {
+  source              = "./modules/resource_group"
+  resource_group_name = "apiK8sRss"
+  location            = "East US"
+}
+
+
+module "networking" {
+  source = "./modules/networking"
+
+  resource_group_name = module.resource_group.resource_group_name
+  location            = module.resource_group.location
+
+  public_ip_name    = "myTestingPublicIp"
+  allocation_method = "Static"
+  sku               = "Standard"
+
+  api_vnet_name                       = "myTestingApiVnet"
+  api_vnet_address_space              = ["10.1.0.0/16"]
+  api_gateway_subnet_name             = "apiGatewaySubnet"
+  api_gateway_subnet_address_prefixes = ["10.1.1.0/24"]
+
+  cluster_vnet_name               = "myTestingClusterVnet"
+  cluster_vnet_address_space      = ["10.2.0.0/16"]
+  cluster_subnet_name             = "clusterSubnet"
+  cluster_subnet_address_prefixes = ["10.2.1.0/24"]
+
+  appgw_to_cluster_peering_name = "AppGWtoClusterVnetPeering"
+  cluster_to_appgw_peering_name = "ClustertoAppGWVnetPeering"
+}
+
+
+# Module for creating the Azure Application Gateway
+module "application_gateway" {
+  source                   = "./modules/application_gateway"
+  application_gateway_name = "myApplicationGateway"
+  resource_group_name      = module.resource_group.resource_group_name
+  location                 = module.resource_group.location
+
+  sku_name                 = "Standard_v2"
+  sku_tier                 = "Standard_v2"
+  sku_capacity             = 2
+
+  gateway_ip_configuration_name = "appGatewayIpConfig"
+  subnet_id                     = module.networking.api_gateway_subnet_id
+
+  frontend_ip_configuration_name    = local.frontend_ip_configuration_name
+  public_ip_address_id           = module.networking.public_ip_id
+
+  frontend_port_name             = local.frontend_port_HTTP_name
+  frontend_port_port             = 80
+
+  backend_address_pool_name             = local.backend_address_pool_name
+
+  backend_http_settings_name            = local.http_setting_name
+  cookie_based_affinity                 = "Disabled"
+  backend_http_settings_port            = 80
+  backend_http_settings_protocol        = "Http"
+  backend_http_settings_request_timeout = 60
+
+  http_listener_name                           = local.listener_name 
+  http_listener_frontend_ip_configuration_name = local.frontend_ip_configuration_name
+  http_listener_frontend_port_name             = local.frontend_port_HTTP_name
+  http_listener_protocol                       = "Http"
+
+  request_routing_rule_name                       = local.request_routing_rule_name
+  request_routing_rule_rule_type                  = "Basic"
+  request_routing_rule_priority                   = 9
+  request_routing_rule_http_listener_name         = local.listener_name
+  request_routing_rule_backend_address_pool_name  = local.backend_address_pool_name
+  request_routing_rule_backend_http_settings_name = local.http_setting_name
+}
+
+
+
+module "aks_cluster" {
+  source              = "./modules/aks_cluster"
+  cluster_name        = "myCluster"
+  resource_group_name = module.resource_group.resource_group_name
+  location            = module.resource_group.location
+  dns_prefix          = "myClusterDns"
+
+  node_pool_name  = "nodepool"
+  node_count      = 1
+  vm_size         = "Standard_D2_v2"
+  os_disk_size_gb = 40
+  vnet_subnet_id  = module.networking.cluster_subnet_id
+
+  network_plugin = "azure"
+  identity_type  = "SystemAssigned"
+
+  local_file_name = "kubeconfig"
+}
+
+# Module for creating the Azure Key Vault
+module "key_vault" {
+  source                     = "./modules/key_vault"
+  key_vault_name             = "myKeyVault-1099"
+  resource_group_name        = module.resource_group.resource_group_name
+  location                   = module.resource_group.location
+  tenant_id                  = data.azurerm_client_config.current.tenant_id
+  soft_delete_retention_days = 7
+  sku_name                   = "standard"
+  object_id                  = local.current_user_id
+  key_permissions            = ["Get", "Create", "List", "Delete", "Purge", "Recover", "SetRotationPolicy", "GetRotationPolicy"]
+  secret_permissions         = ["Get", "Set", "List", "Delete", "Purge", "Recover"]
+  certificate_permissions    = ["Get"]
+  secret_names               = ["mySecret1", "mySecret2"] # Example secret names
+  secret_values              = ["szechuan", "shashlik"]   # Example secret values
+  key_names                  = ["myKey1", "myKey2"]       # Example key names
+  key_types                  = ["RSA", "RSA"]             # Example key types
+  key_sizes                  = [2048, 2048]               # Example key sizes
+  key_opts                   = ["decrypt", "encrypt", "sign", "unwrapKey", "verify", "wrapKey"]
+  time_before_expiry         = "P30D"
+  expire_after               = "P90D"
+  notify_before_expiry       = "P29D"
+}
+
+
+output "resource_group_name" {
+  value = module.resource_group.resource_group_name
+}
+
+output "application_gateway_name" {
+  value = module.application_gateway.application_gateway_name
+}
+
+output "cluster_name" {
+  value = module.aks_cluster.cluster_name
+}
+
+
+# Recurso null_resource para ejecutar un script de bash externo
+resource "null_resource" "execute_script" {
+  # Dependencia de otros recursos, por ejemplo, el recurso de aplicación de puerta de enlace
+  depends_on = [
+    module.application_gateway,
+    module.key_vault,
+    module.aks_cluster
+    # Agrega otros recursos de los que depende tu script aquí
+  ]
+
+  # Ejecutar un script de bash externo después de aplicar los recursos dependientes
+  provisioner "local-exec" {
+    command = "chmod +x script.sh && ./script.sh"
+  }
+}
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+/*
 #**********************Recursos Necesarios***************************
 provider "azurerm" {
   features {
@@ -253,7 +458,7 @@ resource "azurerm_kubernetes_cluster" "myCluster" {
   key_vault_secrets_provider {
     secret_rotation_enabled = true
   }
-  */
+ 
 
 }
 
@@ -288,227 +493,4 @@ resource "azurerm_virtual_network_peering" "ClustertoAppGWVnetPeering" {
   remote_virtual_network_id    = azurerm_virtual_network.apiVnet.id
   allow_virtual_network_access = true
 }
-
-
-
-
-/*
-
- Creación de la red virtual
-resource "azurerm_virtual_network" "vn-rss" {
-  name                = "myVirtualNetwork"
-  resource_group_name = azurerm_resource_group.api-k8s-rss.name
-  address_space       = ["192.168.0.0/16"]
-  location            = azurerm_resource_group.api-k8s-rss.location
-}
-
-# Subnet de cluster
-resource "azurerm_subnet" "vn-sb-aks" {
-  name                 = "mySubnet"
-  resource_group_name  = azurerm_resource_group.api-k8s-rss.name
-  virtual_network_name = azurerm_virtual_network.vn-rss.name
-  address_prefixes     = ["192.168.0.0/24"]
-}
-
-# Cluster AKS
-resource "azurerm_kubernetes_cluster" "aks" {
-  name                = "myCluster"
-  location            = azurerm_resource_group.api-k8s-rss.location
-  resource_group_name = azurerm_resource_group.api-k8s-rss.name
-  dns_prefix          = "myClusterDNS"
-
-  default_node_pool {
-    name           = "default"
-    node_count     = 2
-    vm_size        = "Standard_D2_v2"
-    vnet_subnet_id = azurerm_subnet.vn-sb-aks.id
-  }
-
-  identity {
-    type = "SystemAssigned"
-  }
-
-  network_profile {
-    network_plugin = "azure"
-  }
-}
-
-resource "local_file" "kubeconfig" {
-  depends_on = [azurerm_kubernetes_cluster.aks]
-  filename   = "kubeconfig"
-  content    = azurerm_kubernetes_cluster.aks.kube_config_raw
-}
-
-# Puerta de enlace de aplicación
-resource "azurerm_subnet" "vn-sb-api" {
-  name                 = "mySubnet"
-  resource_group_name  = azurerm_resource_group.api-k8s-rss.name
-  virtual_network_name = azurerm_virtual_network.vn-rss.name
-  address_prefixes     = ["10.0.1.0/24"]
-}
-
-
-
-resource "azurerm_application_gateway" "example" {
-  name                = "myApplicationGateway"
-  resource_group_name = azurerm_resource_group.api-k8s-rss.name
-  location            = azurerm_resource_group.api-k8s-rss.location
-  sku {
-    name     = "Standard_v2"
-    tier     = "Standard_v2"
-    capacity = 2
-  }
-  gateway_ip_configuration {
-    name      = "myGatewayIpConfiguration"
-    subnet_id = azurerm_subnet.vn-sb-api.id
-  }
-  frontend_ip_configuration {
-    name                 = "myFrontendIp"
-    public_ip_address_id = azurerm_public_ip.ip.id
-  }
-}
-
-# Peering entre redes virtuales
-resource "azurerm_virtual_network_peering" "to_aksvnet" {
-  name                         = "AppGWtoAKSVnetPeering"
-  resource_group_name          = azurerm_resource_group.example.name
-  virtual_network_name         = azurerm_virtual_network.example.name
-  remote_virtual_network_id    = azurerm_kubernetes_cluster.example.network_profile[0].network_plugin[0].azure.network_id
-  allow_virtual_network_access = true
-}
-
-resource "azurerm_virtual_network_peering" "to_appgwvnet" {
-  name                         = "AKStoAppGWVnetPeering"
-  resource_group_name          = azurerm_kubernetes_cluster.example.node_resource_group
-  virtual_network_name         = azurerm_kubernetes_cluster.example.network_profile[0].network_plugin[0].azure.vnet_name
-  remote_virtual_network_id    = azurerm_virtual_network.example.id
-  allow_virtual_network_access = true
-}
-
-# We strongly recommend using the required_providers block to set the
-# Azure Provider source and version being used
-
-terraform {
-  required_providers {
-    azurerm = {
-      source = "hashicorp/azurerm"
-    }
-  }
-}
-
-provider "azurerm" {
-  features {}
-}
-
-resource "azurerm_resource_group" "apigw-k8s-resource" {
-  name     = "apigwk8sresources"
-  location = "centralus"
-  tags = {
-    environment = "dev"
-  }
-}
-
-
-
-resource "azurerm_api_management" "api-mg" {
-  name                = "apimn-1"
-  location            = azurerm_resource_group.apigw-k8s-resource.location
-  resource_group_name = azurerm_resource_group.apigw-k8s-resource.name
-  publisher_name      = "E-Commerce Admin Example"
-  publisher_email     = "ecommerce-admin@example"
-
-  sku_name = "Developer_1"
-}
-
-
-resource "azurerm_api_management_api" "api-mg-api" {
-  name                = "apimn-api-1"
-  resource_group_name = azurerm_resource_group.apigw-k8s-resource.name
-  api_management_name = azurerm_api_management.api-mg.name
-  revision            = "1"
-  display_name        = "E-CommerceAdminExampleAPI"
-  path                = "deploytest"
-  protocols           = ["https", "http"]
-  service_url         = "http://52.230.145.205"
-
-  import {
-    content_format = "swagger-link-json"
-    content_value  = "http://conferenceapi.azurewebsites.net/?format=json"
-  }
-}
-
-
-
-# Subredes
-
-resource "azurerm_virtual_network" "virtual_network" {
-  name =  "resources-vnet"
-  location = azurerm_resource_group.apigw-k8s-resource.location
-  resource_group_name = azurerm_resource_group.apigw-k8s-resource.name
-  address_space = "192.168.1.0/16"
-}
- 
-resource "azurerm_subnet" "aks_subnet" {
-  name = "aks"
-  resource_group_name  = azurerm_resource_group.apigw-k8s-resource.name
-  virtual_network_name = azurerm_virtual_network.virtual_network.name
-  address_prefixes = "192.168.0.0/24"
-}
-
-resource "azurerm_subnet" "app_gwsubnet" {
-  name = "appgw"
-  resource_group_name  = azurerm_resource_group.apigw-k8s-resource.name
-  virtual_network_name = azurerm_virtual_network.virtual_network.name
-  address_prefixes = "192.168.2.0/24"
-}
-
-
-
-
-
-
-resource "azurerm_kubernetes_cluster" "k8s" {
-  name                = "testk8s"
-  location            = azurerm_resource_group.apigw-k8s-resource.location
-  resource_group_name = azurerm_resource_group.apigw-k8s-resource.name
-  dns_prefix          = "k8sdns"
-
-  default_node_pool {
-    name       = "default"
-    node_count = 2
-    vm_size    = "Standard_D2_v2"
-  }
-
-  identity {
-    type = "SystemAssigned"
-  }
-
-  http_application_routing_enabled = true
-
-  tags = {
-    Environment = "Test"
-  }
-}
-
-resource "local_file" "kubeconfig" {
-  depends_on = [azurerm_kubernetes_cluster.k8s]
-  filename   = "kubeconfig"
-  content    = azurerm_kubernetes_cluster.k8s.kube_config_raw
-}
-
-
-resource "azurerm_dns_zone" "dns" {
-  name                = "www.ecommerceadmintesting.azurequickstart.org"
-  resource_group_name = azurerm_resource_group.apigw-k8s-resource.name
-}
-
-resource "azurerm_dns_a_record" "example" {
-  name                = "www"
-  zone_name           = azurerm_dns_zone.dns.name
-  resource_group_name = azurerm_resource_group.apigw-k8s-resource.name
-  ttl                 = 3600
-  records             = ["52.230.145.205"]  
-}
-*/
-
-
+ */
