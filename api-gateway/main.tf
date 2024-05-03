@@ -1,19 +1,3 @@
-# Para desplegar este ejemplo necesitas primero crear todos los recursos con terraform apply
-# Luego debes extrare el id del api gateway ya desplegado con el siguiente comando
-# appgwId=$(az network application-gateway show -n myApplicationGateway -g testingApiK8sResourceGroup -o tsv --query "id")
-# Luego debes habilitar el controlador ingress y unirlo con dicha api con el comando
-# az aks enable-addons -n myCluster -g testingApiK8sResourceGroup -a ingress-appgw --appgw-id $appgwId
-# Luego, deberas mover el archivo kubeconfig a tu contexto local para poder usar los comandos
-# de kubectl en tu pc y comunicarse directamente con la nube
-# con mv kubeconfig ~/.kube/config se realiza dicha accion
-# luego puedes crear con kubectl el cluster-example.yaml o obtenerlo del repo oficial
-# kubectl apply -f https://raw.githubusercontent.com/Azure/application-gateway-kubernetes-ingress/master/docs/examples/aspnetapp.yaml 
-# luego kubectl get ingress para ver su ip o en puedes ir a azure, ver el recurso api gateway y la 
-# DIR IP FRONTEND que aparezca en el overview de tu apigateway deberia ser ahora el punto de acceso a
-# los recursos creados en el cluster
-# Para habilitar la union del cluster con el key vault se ejecuta el comando
-# az aks enable-addons --addons azure-keyvault-secrets-provider --name myCluster --resource-group testingApiK8sResourceGroup
-
 
 # main.tf
 
