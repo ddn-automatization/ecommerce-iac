@@ -10,6 +10,10 @@ variable "public_ip_name" {
   description = "Name of the Azure Public IP"
 }
 
+variable "bastion_public_ip_name" {
+  description = "Name of the Azure Public IP"
+}
+
 variable "allocation_method" {
   description = "Allocation method for the Public IP"
 }

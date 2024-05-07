@@ -3,6 +3,11 @@ output "public_ip_id" {
   value       = azurerm_public_ip.publicIp.id
 }
 
+output "bastionip" {
+  description = "The ID of the created Azure Public IP."
+  value       = azurerm_public_ip.bastionpublicIp.id
+}
+
 output "api_vnet_name" {
   description = "The ID of the created API Virtual Network."
   value       = azurerm_virtual_network.apiVnet.name

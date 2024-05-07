@@ -19,6 +19,13 @@ resource "azurerm_kubernetes_cluster" "aks_cluster" {
   identity {
     type = var.identity_type
   }
+
+  key_vault_secrets_provider {
+    # update the secrets on a regular basis
+    secret_rotation_enabled = var.secret_rotation_enabled
+  }
+
+  private_cluster_enabled = var.private_cluster_enabled
 }
 
 

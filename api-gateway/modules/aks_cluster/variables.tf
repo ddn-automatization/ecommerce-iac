@@ -45,3 +45,11 @@ variable "identity_type" {
 variable "local_file_name" {
   description = "Name of the kuberneter file"
 }
+
+variable "secret_rotation_enabled" {
+  description = "Name of the kuberneter file"
+}
+
+variable "private_cluster_enabled" {
+  description = "Name of the kuberneter file"
+}

@@ -82,3 +82,11 @@ variable "expire_after" {
 variable "notify_before_expiry" {
   description = "Notify before expiry"
 }
+
+variable "enabled_for_disk_encryption" {
+  description = "Notify before expiry"
+}
+
+variable "purge_protection_enabled" {
+  description = "Notify before expiry"
+}

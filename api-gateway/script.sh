@@ -18,11 +18,7 @@ az aks enable-addons -n $clusterName -g $resourceGroupName -a ingress-appgw --ap
 # Activa el managed identity
 az aks update -g $resourceGroupName -n $clusterName --enable-managed-identity
 
-# Habilita los addons para Azure Key Vault
-az aks enable-addons --addons azure-keyvault-secrets-provider --name $clusterName --resource-group $resourceGroupName
 
-# Habilitar rotación de secretos
-az aks update -g $resourceGroupName -n $clusterName --enable-secret-rotation
 
 # Imprimir los valores de las variables
 echo "Resource Group Name: $resourceGroupName"

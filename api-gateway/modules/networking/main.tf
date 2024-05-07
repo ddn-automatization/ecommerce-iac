@@ -9,6 +9,15 @@ resource "azurerm_public_ip" "publicIp" {
   allocation_method   = var.allocation_method
   sku                 = var.sku
 }
+
+resource "azurerm_public_ip" "bastionpublicIp" {
+  name                = var.bastion_public_ip_name
+  location            = var.location
+  resource_group_name = var.resource_group_name
+  allocation_method   = var.allocation_method
+  sku                 = var.sku
+}
+
 # Virtual Network sobre lo que estara asociado el Api Gateway
 resource "azurerm_virtual_network" "apiVnet" {
   name                = var.api_vnet_name
