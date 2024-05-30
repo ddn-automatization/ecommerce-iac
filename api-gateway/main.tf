@@ -216,6 +216,21 @@ module "bastion_host" {
   module.networking,        ]
 }
 
+module "security_group" {
+  name                                = "sg_bastion"
+  resource_group_location             = module.resource_group.location
+  resource_group_name                 = module.resource_group.resource_group_name
+  security_name                       = "SSH"
+  security_priority                   = 1001
+  security_direction                  = "Inbound"
+  security_access                     = "Allow"
+  security_protocol                   = "Tcp"
+  security_source_port_range          = "*"
+  security_destination_port_range     = "22"
+  security_source_address_prefix      = module.networking.bastionip
+  security_destination_address_prefix = "*"
+}
+
 output "resource_group_name" {
   value = module.resource_group.resource_group_name
 }

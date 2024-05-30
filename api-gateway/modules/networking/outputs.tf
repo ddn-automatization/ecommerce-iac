@@ -38,4 +38,3 @@ output "bastion_subnet_id" {
   description = "The ID of the Cluster Subnet."
   value       = azurerm_subnet.AzureBastionSubnet.id
 }
-
