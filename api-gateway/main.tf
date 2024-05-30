@@ -217,6 +217,7 @@ module "bastion_host" {
 }
 
 module "security_group" {
+  source                  =           "./modules/security_group"
   name                                = "sg_bastion"
   resource_group_location             = module.resource_group.location
   resource_group_name                 = module.resource_group.resource_group_name
