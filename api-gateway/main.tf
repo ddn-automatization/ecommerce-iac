@@ -98,7 +98,7 @@ module "aks_cluster" {
 
 module "key_vault" {
   source                              = "./modules/key_vault"
-  key_vault_name                      = "myKeyVault-104568"
+  key_vault_name                      = "myKeyVault-10888"
   resource_group_name                 = module.resource_group.resource_group_name
   location                            = module.resource_group.location
   tenant_id                           = data.azurerm_client_config.current.tenant_id
@@ -175,15 +175,20 @@ module "role_assignment" {
   role_definition_name_key_vault   = "Key Vault Secrets User"
   principal_id_key_vault           = module.identity.principal_id
 }
-
-
+/*
+resource "tls_private_key" "ubn_ssh" {
+  algorithm = "RSA"
+  rsa_bits  = 4096
+}
+*/
 module "vm" {
   source                          = "./modules/vm"
   resource_group_name             = module.resource_group.resource_group_name
   resource_group_location         = module.resource_group.location
   admin_username                  = "adminuser"
   admin_password                  = module.key_vault.linuxVM_pswd
-  disable_password_authentication = false
+  public_key                      = file("~/.ssh/vm-deploy-key.pub")
+  disable_password_authentication = true
   name                            = "tf-linux-vm-01"
   linuxVM_nic_id                  = module.vm.linuxVM_nic_id
   size                            = "Standard_DS1_v2"
@@ -202,6 +207,8 @@ module "vm" {
     module.key_vault,
   ]
 }
+
+
 
 module "bastion_host" {
   source                  = "./modules/bastion_host"
@@ -232,6 +239,16 @@ module "security_group" {
   security_source_address_prefix      = module.networking.bastion_ip_address
   security_destination_address_prefix = "*"
 }
+
+
+resource "azurerm_subnet_network_security_group_association" "vm-deploy-sga" {
+  subnet_id                 = module.networking.cluster_subnet_id
+  network_security_group_id = module.security_group.id
+  depends_on = [
+    module.networking,
+  module.security_group]
+}
+
 
 output "resource_group_name" {
   value = module.resource_group.resource_group_name

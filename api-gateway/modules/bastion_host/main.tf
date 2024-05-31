@@ -4,6 +4,11 @@ resource "azurerm_bastion_host" "bastion_host" {
   resource_group_name = var.resource_group_name
   sku                 = var.sku
 
+  copy_paste_enabled     = true
+  file_copy_enabled      = true
+  shareable_link_enabled = true
+  tunneling_enabled      = true
+
   ip_configuration {
     name                 = var.ip_configuration_name
     subnet_id            = var.cluster_subnet_id
