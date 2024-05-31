@@ -65,3 +65,5 @@ resource "azurerm_key_vault_secret" "ssh_public_key" {
   key_vault_id = azurerm_key_vault.key_vault.id
 }
 */
+
+
