@@ -98,7 +98,7 @@ module "aks_cluster" {
 
 module "key_vault" {
   source                              = "./modules/key_vault"
-  key_vault_name                      = "myKeyVault-107788"
+  key_vault_name                      = "myKeyVault-107488"
   resource_group_name                 = module.resource_group.resource_group_name
   location                            = module.resource_group.location
   tenant_id                           = data.azurerm_client_config.current.tenant_id
@@ -110,8 +110,8 @@ module "key_vault" {
   key_permissions                     = ["Get", "Create", "List", "Delete", "Purge", "Recover", "SetRotationPolicy", "GetRotationPolicy"]
   secret_permissions                  = ["Get", "Set", "List", "Delete", "Purge", "Recover"]
   certificate_permissions             = ["Get"]
-  secret_names                        = ["NEXT-PUBLIC-CLERK-PUBLISHABLE-KEY", "CLERK-SECRET-KEY", "NEXT-PUBLIC-CLERK-SIGN-IN-URL", "NEXT-PUBLIC-CLERK-SIGN-UP-URL", "NEXT-PUBLIC-CLERK-AFTER-SIGN-IN-URL", "NEXT-PUBLIC-CLERK-AFTER-SIGN-UP-URL", "DATABASE-URL", "NEXT-PUBLIC-CLOUDINARY-CLOUD-NAME", "CLOUDINARY-PRESET-NAME", "FRONTEND-STORE-URL", "STRIPE-API-KEY", "STRIPE-WEBHOOK-SECRET"]
-  secret_values                       = ["pk_test_b3B0aW11bS1hbW9lYmEtMjcuY2xlcmsuYWNjb3VudHMuZGV2JA", "sk_test_Pnph4tdr83lu1zXwQleaH0DTutvnnFGgH9BdQ4gvT0", "/sign-in", "/sign-up", "/", "/", "mysql://root:Password123!@ecommerce-db:3306/ecommerce?verifyServerCertificate=false", "du47bn0tn", "rl1uzqmr", "http://ecommerce-store:3001", "", ""]
+  secret_names                        = ["NEXT-PUBLIC-CLERK-PUBLISHABLE-KEY", "CLERK-SECRET-KEY", "NEXT-PUBLIC-CLERK-SIGN-IN-URL", "NEXT-PUBLIC-CLERK-AFTER-SIGN-IN-URL", "DATABASE-URL", "NEXT-PUBLIC-CLOUDINARY-CLOUD-NAME", "NEXT-PUBLIC-CLERK-SIGN-UP-URL", "NEXT-PUBLIC-CLERK-AFTER-SIGN-UP-URL", "CLOUDINARY-PRESET-NAME", "FRONTEND-STORE-URL", "STRIPE-API-KEY", "STRIPE-WEBHOOK-SECRET"]
+  secret_values                       = ["pk_test_Y2FwaXRhbC1odW1wYmFjay01NC5jbGVyay5hY2NvdW50cy5kZXYk", "sk_test_M41hUtSCghLofhQpfdby0kGTY6j06Aa1SpJuC3HVnA", "/sign-in", "/", "mysql://admin:Pass123.@mysql:3306/ecommerce_db", "dytwq4xsw", "/sign-up", "/", "rl1uzqmr", "http://ecommerce-store:3001", "", ""]
   key_names                           = ["myKey1", "myKey2"]
   key_types                           = ["RSA", "RSA"]
   key_sizes                           = [2048, 2048]
