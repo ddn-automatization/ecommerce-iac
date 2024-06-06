@@ -13,3 +13,7 @@ variable "resource_group_location" {
 variable "container_sku" {
   description = "The SKU name of the Azure Container Registry."
 }
+
+variable "admin_enabled" {
+  description = "The SKU name of the Azure Container Registry."
+}

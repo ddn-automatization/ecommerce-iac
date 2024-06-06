@@ -5,11 +5,12 @@ resource "azurerm_kubernetes_cluster" "aks_cluster" {
   dns_prefix          = var.dns_prefix
 
   default_node_pool {
-    name            = var.node_pool_name
-    node_count      = var.node_count
-    vm_size         = var.vm_size
-    os_disk_size_gb = var.os_disk_size_gb
-    vnet_subnet_id  = var.vnet_subnet_id
+    name                        = var.node_pool_name
+    node_count                  = var.node_count
+    vm_size                     = var.vm_size
+    os_disk_size_gb             = var.os_disk_size_gb
+    vnet_subnet_id              = var.vnet_subnet_id
+    temporary_name_for_rotation = "nodepooltemp" # Agregar nombre temporal para la rotación
   }
 
   network_profile {

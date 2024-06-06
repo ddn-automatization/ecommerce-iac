@@ -8,7 +8,7 @@ spec:
   parameters:
     usePodIdentity: "false"
     useVMManagedIdentity: "true"
-    userAssignedIdentityID: "8625232a-6358-4f33-a8bc-5609449b13e5"
+    userAssignedIdentityID: "5290a065-2cf2-410e-8644-0f333bde272b"
     keyvaultName: "myKeyVault-107488"
     objects: |
       array:
@@ -48,6 +48,15 @@ spec:
         - |
           objectName: STRIPE-WEBHOOK-SECRET
           objectType: secret
+        - |
+          objectName: NEXT-PUBLIC-API-URL
+          objectType: secret
+        - |
+          objectName: REACT-EDITOR
+          objectType: secret
+        - |
+          objectName: BILLBOARD-ID
+          objectType: secret
     tenantId: "e994072b-523e-4bfe-86e2-442c5e10b244"
   secretObjects:
     - secretName: azure-keyvault-secrets
@@ -77,7 +86,12 @@ spec:
           objectName: STRIPE-API-KEY
         - key: STRIPE-WEBHOOK-SECRET
           objectName: STRIPE-WEBHOOK-SECRET
-
+        - key: NEXT-PUBLIC-API-URL
+          objectName: NEXT-PUBLIC-API-URL
+        - key: REACT-EDITOR
+          objectName: REACT-EDITOR
+        - key: BILLBOARD-ID
+          objectName: BILLBOARD-ID
 
 
 ---
@@ -101,7 +115,7 @@ spec:
     spec:
       containers:
         - name: ecommerce-admin
-          image: ventana1901/ecommerce-admin:v4
+          image: ventana1901/ecommerce-admin:v6
           ports:
             - containerPort: 3000
           env:
@@ -193,6 +207,74 @@ spec:
       targetPort: 3000
   type: ClusterIP
 
+
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: ecommerce-store
+  namespace: ecommerce
+  labels:
+    app: ecommerce-store
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: ecommerce-store
+  template:
+    metadata:
+      labels:
+        app: ecommerce-store
+    spec:
+      containers:
+        - name: ecommerce-store
+          image: ventana1901/ecommerce-store:v12
+          ports:
+            - containerPort: 3001
+          env:
+            - name: NEXT_PUBLIC_API_URL
+              valueFrom:
+                secretKeyRef:
+                  name: azure-keyvault-secrets
+                  key: NEXT-PUBLIC-API-URL
+            - name: REACT_EDITOR
+              valueFrom:
+                secretKeyRef:
+                  name: azure-keyvault-secrets
+                  key: REACT-EDITOR
+            - name: BILLBOARD_ID
+              valueFrom:
+                secretKeyRef:
+                  name: azure-keyvault-secrets
+                  key: BILLBOARD-ID
+          volumeMounts:
+            - name: secrets-store-inline-store
+              mountPath: /mnt/secrets-store/store
+              readOnly: true
+      volumes:
+        - name: secrets-store-inline-store
+          csi:
+            driver: secrets-store.csi.k8s.io
+            readOnly: true
+            volumeAttributes:
+              secretProviderClass: "azure-kvname-user-msi"
+
+---
+
+apiVersion: v1
+kind: Service
+metadata:
+  name: ecommerce-store
+  namespace: ecommerce
+spec:
+  selector:
+    app: ecommerce-store
+  ports:
+    - name: http
+      port: 3001
+      targetPort: 3001
+  type: ClusterIP
+
 ---
 
 apiVersion: networking.k8s.io/v1
@@ -202,6 +284,7 @@ metadata:
   namespace: ecommerce
   annotations:
     kubernetes.io/ingress.class: azure/application-gateway
+    nginx.ingress.kubernetes.io/ssl-redirect: "false"
 spec:
   rules:
   - http:
@@ -210,6 +293,28 @@ spec:
         pathType: Prefix
         backend:
           service:
+            name: ecommerce-store
+            port:
+              number: 3001
+      - path: /admin
+        pathType: Exact
+        backend:
+          service:
             name: ecommerce-admin
             port:
               number: 3000
+
+
+
+
+
+
+
+
+
+              
+
+
+
+
+

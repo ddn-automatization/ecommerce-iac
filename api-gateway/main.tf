@@ -82,8 +82,8 @@ module "aks_cluster" {
   location                = module.resource_group.location
   dns_prefix              = "myClusterDns"
   node_pool_name          = "nodepool"
-  node_count              = 1
-  vm_size                 = "Standard_D2_v2"
+  node_count              = 2
+  vm_size                 = "Standard_D2_v2" # Cambiar a un tamaño mayor
   os_disk_size_gb         = 40
   vnet_subnet_id          = module.networking.cluster_subnet_id
   network_plugin          = "azure"
@@ -110,8 +110,8 @@ module "key_vault" {
   key_permissions                     = ["Get", "Create", "List", "Delete", "Purge", "Recover", "SetRotationPolicy", "GetRotationPolicy"]
   secret_permissions                  = ["Get", "Set", "List", "Delete", "Purge", "Recover"]
   certificate_permissions             = ["Get"]
-  secret_names                        = ["NEXT-PUBLIC-CLERK-PUBLISHABLE-KEY", "CLERK-SECRET-KEY", "NEXT-PUBLIC-CLERK-SIGN-IN-URL", "NEXT-PUBLIC-CLERK-AFTER-SIGN-IN-URL", "DATABASE-URL", "NEXT-PUBLIC-CLOUDINARY-CLOUD-NAME", "NEXT-PUBLIC-CLERK-SIGN-UP-URL", "NEXT-PUBLIC-CLERK-AFTER-SIGN-UP-URL", "CLOUDINARY-PRESET-NAME", "FRONTEND-STORE-URL", "STRIPE-API-KEY", "STRIPE-WEBHOOK-SECRET"]
-  secret_values                       = ["pk_test_Y2FwaXRhbC1odW1wYmFjay01NC5jbGVyay5hY2NvdW50cy5kZXYk", "sk_test_M41hUtSCghLofhQpfdby0kGTY6j06Aa1SpJuC3HVnA", "/sign-in", "/", "mysql://admin:Pass123.@mysql:3306/ecommerce_db", "dytwq4xsw", "/sign-up", "/", "rl1uzqmr", "http://ecommerce-store:3001", "", ""]
+  secret_names                        = ["NEXT-PUBLIC-CLERK-PUBLISHABLE-KEY", "CLERK-SECRET-KEY", "NEXT-PUBLIC-CLERK-SIGN-IN-URL", "NEXT-PUBLIC-CLERK-AFTER-SIGN-IN-URL", "DATABASE-URL", "NEXT-PUBLIC-CLOUDINARY-CLOUD-NAME", "NEXT-PUBLIC-CLERK-SIGN-UP-URL", "NEXT-PUBLIC-CLERK-AFTER-SIGN-UP-URL", "CLOUDINARY-PRESET-NAME", "FRONTEND-STORE-URL", "STRIPE-API-KEY", "STRIPE-WEBHOOK-SECRET", "NEXT-PUBLIC-API-URL", "REACT-EDITOR", "BILLBOARD-ID"]
+  secret_values                       = ["pk_test_Y2FwaXRhbC1odW1wYmFjay01NC5jbGVyay5hY2NvdW50cy5kZXYk", "sk_test_M41hUtSCghLofhQpfdby0kGTY6j06Aa1SpJuC3HVnA", "/sign-in", "/", "mysql://admin:Pass123.@mysql:3306/ecommerce_db", "dytwq4xsw", "/sign-up", "/", "rl1uzqmr", "http://ecommerce-store:3001", "sk_test_51PO94nBr9QdWwf17VX0iiy5xLxwqs76mEaYkETOxEP1VHUG7qx9xJvm7g4A9PgQZRWWjirc8hhKYP0JxwormvzM10031eQM9yY", "whsec_2e8232ce37563694ff7ab24cc639b87be827081ca5ff366d0faa88c51fe03f59", "http://ecommerce-admin:3000/api/7df897db-da88-4977-9f0c-f4208412e660", "atom", "600960b4-020f-4dff-a126-271459f5386e"]
   key_names                           = ["myKey1", "myKey2"]
   key_types                           = ["RSA", "RSA"]
   key_sizes                           = [2048, 2048]
@@ -159,10 +159,11 @@ module "helm" {
 
 module "container_registry" {
   source                  = "./modules/container_registry"
-  container_name          = "containerRegistryK8SProjectExample"
+  container_name          = "acrK8SProjectEcommerce"
   resource_group_name     = module.resource_group.resource_group_name
   resource_group_location = module.resource_group.location
   container_sku           = "Standard"
+  admin_enabled           = false
 }
 
 module "role_assignment" {
@@ -272,7 +273,6 @@ resource "random_password" "mysecret" {
 }
 
 
-
 resource "null_resource" "execute_script" {
   depends_on = [
     module.application_gateway,
@@ -283,12 +283,17 @@ resource "null_resource" "execute_script" {
     //module.helm,
     module.networking,
     module.resource_group
-
   ]
+
+  triggers = {
+    always_run = "${timestamp()}"
+  }
+
   provisioner "local-exec" {
     command = "chmod +x script.sh && ./script.sh"
   }
 }
+
 
 
 

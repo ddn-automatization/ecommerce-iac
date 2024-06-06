@@ -1,18 +1,25 @@
 #!/bin/bash
 
+set -e
+
 # Obtener el nombre del grupo de recursos
 resourceGroupName=$(terraform output -raw resource_group_name)
+echo "Resource Group Name: $resourceGroupName"
 
 # Obtener el nombre de la aplicación de la puerta de enlace de aplicaciones
 applicationGatewayName=$(terraform output -raw application_gateway_name)
+echo "Application Gateway Name: $applicationGatewayName"
 
 # Obtener el nombre del cluster
 clusterName=$(terraform output -raw cluster_name)
+echo "Cluster Name: $clusterName"
 
 # Ejecutar el comando de Azure CLI con los valores obtenidos
 appgwId=$(az network application-gateway list -g $resourceGroupName --query "[?name=='$applicationGatewayName'].id" -o tsv)
+echo "Application Gateway ID: $appgwId"
 
 export AKS_OIDC_ISSUER="$(az aks show --resource-group $resourceGroupName --name $clusterName --query "oidcIssuerProfile.issuerUrl" -o tsv)"
+echo "AKS OIDC Issuer: $AKS_OIDC_ISSUER"
 
 # Habilita los addons para la puerta de enlace de aplicaciones
 az aks enable-addons -n $clusterName -g $resourceGroupName -a ingress-appgw --appgw-id $appgwId
@@ -20,7 +27,14 @@ az aks enable-addons -n $clusterName -g $resourceGroupName -a ingress-appgw --ap
 # Activa el managed identity
 az aks update -g $resourceGroupName -n $clusterName --enable-managed-identity
 
-ssh-keygen -t rsa -b 4096 -f ~/.ssh/vm-deploy-key
+# Generar la clave SSH solo si no existe
+if [ ! -f ~/.ssh/vm-deploy-key ]; then
+    ssh-keygen -t rsa -b 4096 -f ~/.ssh/vm-deploy-key -N ""
+else
+    echo "SSH key already exists, skipping generation."
+fi
+
+echo "Script ejecutado correctamente."
 
 # mv kubeconfig ~/.kube/config
 # az vm show --resource-group <nombre-del-grupo-de-recursos> --name <nombre-de-la-vm> --query "id" --output tsv 
@@ -38,10 +52,3 @@ ssh-keygen -t rsa -b 4096 -f ~/.ssh/vm-deploy-key
 # az aks get-credentials --name myCluster --resource-group apiK8sRss --admin
 # kubectl get namespaces
 # kubectl logs pod/dependent-envars-demo
-
-# Imprimir los valores de las variables
-echo "Resource Group Name: $resourceGroupName"
-echo "Application Gateway Name: $applicationGatewayName"
-echo "Cluster Name: $clusterName"
-echo "Application Gateway ID: $appgwId"
-echo $AKS_OIDC_ISSUER
