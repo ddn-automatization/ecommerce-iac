@@ -4,6 +4,7 @@ resource "azurerm_linux_virtual_machine" "tf-linux-vm-01" {
   disable_password_authentication = var.disable_password_authentication # this must be 'true' if admin_password is not used ie., like when using admin_ssh_keys as an example
   location                        = var.resource_group_location
   name                            = var.name
+  custom_data                     = var.custom_data
   network_interface_ids = [
     var.linuxVM_nic_id
   ]

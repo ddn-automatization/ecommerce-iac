@@ -8,7 +8,7 @@ spec:
   parameters:
     usePodIdentity: "false"
     useVMManagedIdentity: "true"
-    userAssignedIdentityID: "5290a065-2cf2-410e-8644-0f333bde272b"
+    userAssignedIdentityID: "349bf1f4-4e97-4ce6-b2e9-2243e5b8c7f2"
     keyvaultName: "myKeyVault-107488"
     objects: |
       array:
@@ -293,16 +293,16 @@ spec:
         pathType: Prefix
         backend:
           service:
-            name: ecommerce-store
-            port:
-              number: 3001
-      - path: /admin
-        pathType: Exact
-        backend:
-          service:
             name: ecommerce-admin
             port:
               number: 3000
+      - path: /store
+        pathType: Exact
+        backend:
+          service:
+            name: ecommerce-store
+            port:
+              number: 3001
 
 
 

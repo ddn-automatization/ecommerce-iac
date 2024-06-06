@@ -10,6 +10,9 @@ echo "Resource Group Name: $resourceGroupName"
 applicationGatewayName=$(terraform output -raw application_gateway_name)
 echo "Application Gateway Name: $applicationGatewayName"
 
+acr_name=$(terraform output -raw acr_name)
+echo "ACR Name: $acr_name"
+
 # Obtener el nombre del cluster
 clusterName=$(terraform output -raw cluster_name)
 echo "Cluster Name: $clusterName"
@@ -21,11 +24,25 @@ echo "Application Gateway ID: $appgwId"
 export AKS_OIDC_ISSUER="$(az aks show --resource-group $resourceGroupName --name $clusterName --query "oidcIssuerProfile.issuerUrl" -o tsv)"
 echo "AKS OIDC Issuer: $AKS_OIDC_ISSUER"
 
+# Obtener el nombre del bastion host
+bastionHostName=$(terraform output -raw bastion_host_name)
+echo "Bastion Host Name: $bastionHostName"
+
+#Obtener el nombre de la maquina virtual
+vm_name=$(terraform output -raw vm_name)
+echo "Virtual Machine Name: $vm_name"
+
+# Obtener el ID de la VM
+vmId=$(az vm show --resource-group $resourceGroupName --name $vm_name --query "id" --output tsv)
+echo "VM ID: $vmId"
+
 # Habilita los addons para la puerta de enlace de aplicaciones
 az aks enable-addons -n $clusterName -g $resourceGroupName -a ingress-appgw --appgw-id $appgwId
 
 # Activa el managed identity
 az aks update -g $resourceGroupName -n $clusterName --enable-managed-identity
+
+az acr login --name $acr_name
 
 # Generar la clave SSH solo si no existe
 if [ ! -f ~/.ssh/vm-deploy-key ]; then

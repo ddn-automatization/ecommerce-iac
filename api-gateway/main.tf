@@ -16,6 +16,10 @@ locals {
   current_user_id                = coalesce(null, data.azurerm_client_config.current.object_id)
 }
 
+data "template_file" "linux-vm-cloud-init" {
+  template = file("sonar.sh")
+}
+
 module "resource_group" {
   source              = "./modules/resource_group"
   resource_group_name = "apiK8sRss"
@@ -191,6 +195,7 @@ module "vm" {
   public_key                      = file("~/.ssh/vm-deploy-key.pub")
   disable_password_authentication = true
   name                            = "tf-linux-vm-01"
+  custom_data                     = base64encode(data.template_file.linux-vm-cloud-init.rendered)
   linuxVM_nic_id                  = module.vm.linuxVM_nic_id
   size                            = "Standard_DS1_v2"
   caching                         = "ReadWrite"
@@ -263,6 +268,20 @@ output "cluster_name" {
   value = module.aks_cluster.cluster_name
 }
 
+output "acr_name" {
+  value = module.container_registry.name
+}
+
+output "bastion_host_name" {
+  value = module.bastion_host.name
+}
+
+output "vm_name" {
+  value = module.vm.name
+}
+
+
+
 resource "random_password" "mysecret" {
   length           = 18
   min_upper        = 2
@@ -282,7 +301,10 @@ resource "null_resource" "execute_script" {
     module.container_registry,
     //module.helm,
     module.networking,
-    module.resource_group
+    module.resource_group,
+    module.security_group,
+    module.bastion_host,
+    module.vm
   ]
 
   triggers = {
