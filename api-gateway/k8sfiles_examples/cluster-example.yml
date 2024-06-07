@@ -1,0 +1,99 @@
+apiVersion: v1
+kind: Pod
+metadata:
+  name: aspnetapp
+  namespace: ecommerce
+  labels:
+    app: aspnetapp
+spec:
+  containers:
+  - image: "mcr.microsoft.com/dotnet/samples:aspnetapp"
+    name: aspnetapp-image
+    ports:
+    - containerPort: 8080
+      protocol: TCP
+
+---
+
+apiVersion: v1
+kind: Service
+metadata:
+  name: aspnetapp
+  namespace: ecommerce
+spec:
+  selector:
+    app: aspnetapp
+  ports:
+  - protocol: TCP
+    port: 80
+    targetPort: 8080
+
+---
+
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: app1-nginx-deployment
+  namespace: ecommerce
+  labels:
+    app: app1-nginx
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: app1-nginx
+  template:
+    metadata:
+      labels:
+        app: app1-nginx
+    spec:
+      containers:
+        - name: app1-nginx
+          image: aslam24/nginx-web-newapp:v1
+          ports:
+            - containerPort: 80
+
+---
+
+apiVersion: v1
+kind: Service
+metadata:
+  name: app1-nginx-clusterip-service
+  namespace: ecommerce
+  labels:
+    app: app1-nginx
+spec:
+  type: ClusterIP
+  selector:
+    app: app1-nginx
+  ports:
+    - port: 80
+      targetPort: 80
+
+---
+
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  name: my-ingress
+  namespace: ecommerce
+  annotations:
+    kubernetes.io/ingress.class: azure/application-gateway
+spec:
+  rules:
+  - http:
+      paths:
+      - path: /
+        pathType: Prefix
+        backend:
+          service:
+            name: aspnetapp
+            port:
+              number: 80
+      - path: /app1
+        pathType: Prefix
+        backend:
+          service:
+            name: app1-nginx-clusterip-service
+            port:
+              number: 80
