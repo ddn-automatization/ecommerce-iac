@@ -93,7 +93,6 @@ spec:
         - key: BILLBOARD-ID
           objectName: BILLBOARD-ID
 
-
 ---
 
 apiVersion: apps/v1
@@ -115,15 +114,7 @@ spec:
     spec:
       containers:
         - name: ecommerce-admin
-<<<<<<< Updated upstream
-<<<<<<< Updated upstream
           image: acrk8sprojectecommerce.azurecr.io/ecommerce-admin:16
-=======
-          image: acrk8sprojectecommerce.azurecr.io/ecommerce-admin:22
->>>>>>> Stashed changes
-=======
-          image: acrk8sprojectecommerce.azurecr.io/ecommerce-admin:23
->>>>>>> Stashed changes
           ports:
             - containerPort: 3000
           env:
@@ -215,8 +206,8 @@ spec:
       targetPort: 3000
   type: ClusterIP
 
-
 ---
+
 apiVersion: apps/v1
 kind: Deployment
 metadata:
@@ -295,34 +286,19 @@ metadata:
     nginx.ingress.kubernetes.io/ssl-redirect: "false"
 spec:
   rules:
-  - http:
-      paths:
-      - path: /
-        pathType: Prefix
-        backend:
-          service:
-            name: ecommerce-admin
-            port:
-              number: 3000
-      - path: /store
-        pathType: Exact
-        backend:
-          service:
-            name: ecommerce-store
-            port:
-              number: 3001
-
-
-
-
-
-
-
-
-
-              
-
-
-
-
-
+    - http:
+        paths:
+          - path: /admin
+            pathType: Prefix
+            backend:
+              service:
+                name: ecommerce-admin
+                port:
+                  number: 3000
+          - path: /store
+            pathType: Prefix
+            backend:
+              service:
+                name: ecommerce-store
+                port:
+                  number: 3001
