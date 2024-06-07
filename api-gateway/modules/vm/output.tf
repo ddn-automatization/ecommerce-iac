@@ -3,5 +3,6 @@ output "linuxVM_nic_id" {
 }
 
 output "name" {
-  value = azurerm_linux_virtual_machine.name
+  value = azurerm_linux_virtual_machine.tf-linux-vm-01.name
 }
+
