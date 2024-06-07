@@ -114,7 +114,11 @@ spec:
     spec:
       containers:
         - name: ecommerce-admin
+<<<<<<< Updated upstream
           image: acrk8sprojectecommerce.azurecr.io/ecommerce-admin:16
+=======
+          image: acrk8sprojectecommerce.azurecr.io/ecommerce-admin:24
+>>>>>>> Stashed changes
           ports:
             - containerPort: 3000
           env:
