@@ -56,7 +56,7 @@ echo "Script ejecutado correctamente."
 # mv kubeconfig ~/.kube/config
 # az vm show --resource-group <nombre-del-grupo-de-recursos> --name <nombre-de-la-vm> --query "id" --output tsv 
 # az vm show --resource-group apiK8sRss  --name tf-linux-vm-01 --query "id" --output tsv       
-# az network bastion ssh --name kratos-controller --resource-group apiK8sRss --target-resource-id  --auth-type "ssh-key" --username adminuser --ssh-key ~/.ssh/vm-deploy-key
+# az network bastion ssh --name $bastionHostName --resource-group $resourceGroupName --target-resource-id $vmId --auth-type "ssh-key" --username adminuser --ssh-key ~/.ssh/vm-deploy-key
 # az network bastion ssh --name <bastion-host-name> --resource-group <resource-group-name> --target-resource-id <vm-id> --auth-type "ssh-key" --username <username-ssh>--ssh-key ~/.ssh/vm-deploy-key
 
 
