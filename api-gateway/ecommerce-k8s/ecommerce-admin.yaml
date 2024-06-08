@@ -227,7 +227,7 @@ spec:
     spec:
       containers:
         - name: ecommerce-store
-          image: ventana1901/ecommerce-store:v12
+          image: acrk8sprojectecommerce.azurecr.io/ecommerce-store:1
           ports:
             - containerPort: 3001
           env:
